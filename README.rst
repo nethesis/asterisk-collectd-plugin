@@ -9,7 +9,7 @@ Install
 =========
 - install https://github.com/ettoreleandrotognoli/python-ami
 - Copy asterisk_monitor.py in python 2.7 path (probably /usr/lib/python2.7/site-packages)
-- Copy asterisk.conf in collectd configuration directory (/etc/collectd.d/) and edit it
+- Copy asterisk_monitor.conf in collectd configuration directory (/etc/collectd.d/) and edit it
 - restart collectd ::
 
     systemctl collectd restart

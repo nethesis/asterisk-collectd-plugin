@@ -51,7 +51,7 @@ def event_listener(source, event):
                 events[event.keys['ActionID']]['queues'][event.keys['Queue']] = {}
                 events[event.keys['ActionID']]['queues'][event.keys['Queue']]['OnlineMembers'] = 0
                 events[event.keys['ActionID']]['queues'][event.keys['Queue']]['PausedMembers'] = 0
-            if event.keys['Paused'] == 0:
+            if int(event.keys['Paused']) == 0 and int(event.keys['Status']) != 5:
                 events[event.keys['ActionID']]['queues'][event.keys['Queue']]['OnlineMembers'] += 1
             else:
                 events[event.keys['ActionID']]['queues'][event.keys['Queue']]['PausedMembers'] += 1

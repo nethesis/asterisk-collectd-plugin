@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 
 #
 # Copyright (C) 2019 Nethesis S.r.l.
@@ -23,6 +22,7 @@
 import time
 import json
 import collectd
+import subprocess
 from asterisk.ami import AMIClient,SimpleAction,AutoReconnect
 import socket
 
@@ -55,8 +55,18 @@ def event_listener(source, event):
                 events[event.keys['ActionID']]['queues'][event.keys['Queue']]['OnlineMembers'] += 1
             else:
                 events[event.keys['ActionID']]['queues'][event.keys['Queue']]['PausedMembers'] += 1
+        elif event.name == 'QueueEntry':
+            if not event.keys['Queue'] in events[event.keys['ActionID']]['queues']:
+                events[event.keys['ActionID']]['queues'][event.keys['Queue']] = {}
+            if not 'Callers' in events[event.keys['ActionID']]['queues'][event.keys['Queue']]:
+                events[event.keys['ActionID']]['queues'][event.keys['Queue']]['Callers'] = 1
+            if not 'CallersMaxWait' in events[event.keys['ActionID']]['queues'][event.keys['Queue']]:
+                events[event.keys['ActionID']]['queues'][event.keys['Queue']]['CallersMaxWait'] = 0
+            if int(event.keys['Wait']) > events[event.keys['ActionID']]['queues'][event.keys['Queue']]['CallersMaxWait']:
+                events[event.keys['ActionID']]['queues'][event.keys['Queue']]['CallersMaxWait'] = int(event.keys['Wait'])
+            events[event.keys['ActionID']]['queues'][event.keys['Queue']]['Callers'] += 1
         else :
-            log_debug('Unknow event: '+ json.dumps(event))
+            log_debug('Unknow event: '+ str(event))
 
 def read_callback():
     global events
@@ -65,7 +75,6 @@ def read_callback():
     global CONFIG
 
     timeid = time.time()
-
     # Request queue status
     actionid='queues'+str(timeid)
     action = 'QueueStatus'
@@ -93,81 +102,94 @@ def read_callback():
                 # dispatch event
                 log_debug('dispatch event '+str(aid))
                 for queue,data in event['queues'].items():
-                    # Calls
-                    try:
-                        dispatch_value('queue '+queue,'calls', data['Calls'],'gauge','Calls')
-                    except Exception as err:
-                        collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
-                    # Online Members
-                    try:
-                        dispatch_value('queue '+queue,'online_members',data['OnlineMembers'],'gauge','Online Members')
-                    except Exception as err:
-                        collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
-                    # Holdtime
-                    try:
-                        dispatch_value('Holdtime','holdtime',data['Holdtime'],'duration',queue)
-                    except Exception as err:
-                        collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
-                    # Calls per member
-                    try:
-                        if data['OnlineMembers'] == 0:
-                            online_members = 1
+                    if CONFIG['EnableGraphs']:
+                        # Calls
+                        try:
+                            dispatch_value('queue '+queue,'calls', data['Calls'],'gauge','Calls')
+                        except Exception as err:
+                            collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
+                        # Online Members
+                        try:
+                            dispatch_value('queue '+queue,'online_members',data['OnlineMembers'],'gauge','Online Members')
+                        except Exception as err:
+                            collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
+                        # Holdtime
+                        try:
+                            dispatch_value('Holdtime','holdtime',data['Holdtime'],'duration',queue)
+                        except Exception as err:
+                            collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
+                        # Calls per member
+                        try:
+                            if data['OnlineMembers'] == 0:
+                                online_members = 1
+                            else:
+                                online_members = data['OnlineMembers']
+                            dispatch_value('CallsPerMember'+queue,'callspermember',int(data['Calls'])/online_members,'gauge','Calls per Online Member')
+                        except Exception as err:
+                            collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
+                        # TalkTime
+                        try:
+                            dispatch_value('TalkTime','talktime',data['TalkTime'],'duration',queue)
+                        except Exception as err:
+                            collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
+                        # ServiceLevel
+                        try:
+                            dispatch_value('ServiceLevel','servicelevel',data['ServiceLevel'],'duration',queue)
+                        except Exception as err:
+                            collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
+                        # Paused Members
+                        try:
+                            dispatch_value('queue '+queue,'paused_members',data['PausedMembers'],'gauge','Paused Members')
+                        except Exception as err:
+                           collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
+
+                    if CONFIG['EnableNotifications']:
+                        #################
+                        # Notifications #
+                        ################# 
+                        # Queue load
+                        payload = {}
+                        payload['type'] = 'queueload'
+                        payload['type_instance'] = 'Queue'+queue
+                        payload['message'] = 'Queue %s has %s calls with waiting time of %s seconds' % (queue, data['Calls'], data['Holdtime'])
+                        if int(data['Calls']) > int(CONFIG['MaxCalls']) and int(data['Holdtime']) > int(CONFIG['MaxHoldtime']) :
+                            payload['severity'] = 'warning'
                         else:
-                            online_members = data['OnlineMembers']
-                        dispatch_value('CallsPerMember'+queue,'callspermember',int(data['Calls'])/online_members,'gauge','Calls per Online Member')
-                    except Exception as err:
-                        collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
-                    # TalkTime
-                    try:
-                        dispatch_value('TalkTime','talktime',data['TalkTime'],'duration',queue)
-                    except Exception as err:
-                        collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
-                    # ServiceLevel
-                    try:
-                        dispatch_value('ServiceLevel','servicelevel',data['ServiceLevel'],'duration',queue)
-                    except Exception as err:
-                        collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
-                    # Paused Members
-                    try:
-                        dispatch_value('queue '+queue,'paused_members',data['PausedMembers'],'gauge','Paused Members')
-                    except Exception as err:
-                        collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
+                            payload['severity'] = 'okay'
+                        notify(payload)
 
-                    #################
-                    # Notifications #
-                    ################# 
-                    # Queue load
-                    payload = {}
-                    payload['type'] = 'queueload'
-                    payload['type_instance'] = 'Queue'+queue
-                    payload['message'] = 'Queue %s has %s calls with waiting time of %s seconds' % (queue, data['Calls'], data['Holdtime'])
-                    if int(data['Calls']) > int(CONFIG['MaxCalls']) and int(data['Holdtime']) > int(CONFIG['MaxHoldtime']) :
-                        payload['severity'] = 'warning'
-                    else:
-                        payload['severity'] = 'okay'
-                    notify(payload)
+                        # Caller Max Wait too high
+                        payload = {}
+                        payload['type'] = 'queuemaxwait'
+                        payload['type_instance'] = 'Queue'+queue
+                        payload['message'] = 'Queue %s first call has been waiting for %s seconds' % (queue, data['CallersMaxWait'])
+                        if int(data['Calls']) > int(CONFIG['MaxCalls']) and int(data['CallersMaxWait']) > int(CONFIG['CallersMaxWait']) :
+                            payload['severity'] = 'warning'
+                        else:
+                            payload['severity'] = 'okay'
+                        notify(payload)
 
-                    # too few operators logged in
-                    payload = {}
-                    payload['type'] = 'queuefewop'
-                    payload['type_instance'] = 'Queue'+queue
-                    payload['message'] = 'Queue %s has %s calls and %s online operators' % (queue, data['Calls'], data['OnlineMembers'])
-                    if int(data['Calls']) > int(data['OnlineMembers']) * float(CONFIG['MaxCallPerOp']):
-                        payload['severity'] = 'warning'
-                    else:
-                        payload['severity'] = 'okay'
-                    notify(payload)
+                        # too few operators logged in
+                        payload = {}
+                        payload['type'] = 'queuefewop'
+                        payload['type_instance'] = 'Queue'+queue
+                        payload['message'] = 'Queue %s has %s calls and %s online operators' % (queue, data['Calls'], data['OnlineMembers'])
+                        if int(data['Calls']) > int(data['OnlineMembers']) * float(CONFIG['MaxCallPerOp']):
+                            payload['severity'] = 'warning'
+                        else:
+                            payload['severity'] = 'okay'
+                        notify(payload)
 
-                    # Service level too high
-                    payload = {}
-                    payload['type'] = 'queueservicelevel'
-                    payload['type_instance'] = 'Queue'+queue
-                    payload['message'] = 'Queue %s has a service level of %s' % (queue, data['ServiceLevel'])
-                    if int(data['ServiceLevel']) > int(CONFIG['MaxServiceLevel']) :
-                        payload['severity'] = 'warning'
-                    else:
-                        payload['severity'] = 'okay'
-                    notify(payload)
+                        # Holdtime too high
+                        payload = {}
+                        payload['type'] = 'queueholdtime'
+                        payload['type_instance'] = 'Queue'+queue
+                        payload['message'] = 'Queue %s has a holdtime of %s' % (queue, data['Holdtime'])
+                        if int(data['Holdtime']) > int(CONFIG['MaxHoldtime']) :
+                            payload['severity'] = 'warning'
+                        else:
+                            payload['severity'] = 'okay'
+                        notify(payload)
 
             # delete event
             log_debug('delete event '+str(aid))
@@ -185,7 +207,7 @@ def ami_client_connect_and_login(address,port,username,secret):
         client = AMIClient(address=CONFIG['Host'],port=CONFIG['Port'])
         #AutoReconnect(client)
         client.login(username=CONFIG['Username'],secret=CONFIG['Secret'])
-        client.add_event_listener(event_listener, white_list=['QueueParams','QueueStatusComplete','QueueMember'])
+        client.add_event_listener(event_listener, white_list=['QueueParams','QueueStatusComplete','QueueMember','QueueEntry'])
         log_debug('AMI client connected')
     except Exception as err:
         collectd.info('AMI client ERROR: ' % str(err))
@@ -197,10 +219,11 @@ def configure_callback(conf):
         if node.key in CONFIG:
             CONFIG[node.key] = node.values[0]
     CONFIG['Port'] = int(CONFIG['Port'])
-    if CONFIG['Debug'].lower() == 'true':
-        CONFIG['Debug'] = True
-    else :
-        CONFIG['Debug'] = False
+    for key in ['Debug','EnableNotifications','EnableGraphs']:
+        if CONFIG[key].lower() == 'true':
+            CONFIG[key] = True
+        else :
+            CONFIG[key] = False
 
     log_debug('plugin configured')
     ami_client_connect_and_login(address=CONFIG['Host'],port=CONFIG['Port'],username=CONFIG['Username'],secret=CONFIG['Secret'])
@@ -230,22 +253,17 @@ def notify(payload):
     if payload['type']+payload['type_instance'] in notifications and notifications[payload['type']+payload['type_instance']] == payload['severity']:
         # Notification already sent
         return True
- 
     message = 'PUTNOTIF host=%s type=%s type_instance=%s severity=%s time=%s message="%s"' % (CONFIG['Hostname'],payload['type'],payload['type_instance'],payload['severity'],time.time(),payload['message'])
     log_debug(message)
     try :
-        import subprocess
         p = subprocess.Popen(["/usr/bin/nc","-U",CONFIG['CollectdSocket']], stdin=subprocess.PIPE)
         p.communicate(message)
         if p.returncode != 0 :
             raise Exception('error %s writing to collectd socket' % str(p.returncode))
-        #collectd_socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        #collectd_socket.connect(CONFIG['CollectdSocket'])
-        #collectd_socket.sendall(message)
-        #collectd_socket.close()
         notifications[payload['type']+payload['type_instance']] = payload['severity']
     except Exception as err:
-        collectd.info('Error sending notification %s : %s' % (message,str(err)))
+        collectd.error('Error sending notification %s : %s' % (message,str(err)))
+
 
 # Initialize default configuration
 CONFIG = {
@@ -256,10 +274,12 @@ CONFIG = {
     'Username': '',
     'Secret': '',
     'MaxCallPerOp' : 2,
-    'MaxServiceLevel' : 300,
     'MaxCalls': 10,
     'MaxHoldtime': 120, 
-    'Debug' : False,
+    'CallersMaxWait' : 250,
+    'Debug' : 'False',
+    'EnableGraphs': 'True',
+    'EnableNotifications': 'True',
 }
 
 # Events dictionary will hold all eventrs before they are dispatched to collectd
@@ -271,3 +291,4 @@ notifications = {}
 # register collectd callbacks
 collectd.register_read(read_callback)
 collectd.register_config(configure_callback)
+

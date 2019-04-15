@@ -39,5 +39,7 @@ MaxCalls: notification is triggered if there are more than MaxCalls waiting and 
 
 MaxHoldtime: notification is triggered if there are more than MaxCalls waiting and holdtime is more than MaxHoldtime. Default 120 
 
+CallersMaxWait: notification is triggered if there are more than MaxCalls waiting and the first call waiting time is more than CallersMaxWait. Default 250 seconds.
+
 Debug: If enabled, debug information is logged in syslog. Default: False
 

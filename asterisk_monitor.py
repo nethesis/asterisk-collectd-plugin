@@ -162,8 +162,11 @@ def read_callback():
                         payload = {}
                         payload['type'] = 'queuemaxwait'
                         payload['type_instance'] = 'Queue'+queue
-                        payload['message'] = 'Queue %s first call has been waiting for %s seconds' % (queue, data['CallersMaxWait'])
-                        if int(data['Calls']) > int(CONFIG['MaxCalls']) and int(data['CallersMaxWait']) > int(CONFIG['CallersMaxWait']) :
+                        if 'CallersMaxWait' in data:
+                            payload['message'] = 'Queue %s first call has been waiting for %s seconds' % (queue, data['CallersMaxWait'])
+                        else:
+                            payload['message'] = 'Queue %s has no waiting call' % queue
+                        if 'CallersMaxWait' in data and int(data['Calls']) > int(CONFIG['MaxCalls']) and int(data['CallersMaxWait']) > int(CONFIG['CallersMaxWait']) :
                             payload['severity'] = 'warning'
                         else:
                             payload['severity'] = 'okay'

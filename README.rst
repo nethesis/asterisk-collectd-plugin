@@ -12,7 +12,7 @@ Install
 - Copy asterisk_monitor.conf in collectd configuration directory (/etc/collectd.d/) and edit it
 - restart collectd ::
 
-    systemctl collectd restart
+    systemctl restart collectd
 
 Configuration options
 ======================

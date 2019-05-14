@@ -33,13 +33,13 @@ EnableGraphs: save data to collectd .rrd db. Default True
 
 EnableNotifications: send notifications to collectd. Default True
 
-MaxCallPerOp : notification is triggered if there are more than MaxCallPerOp calls for each operator. Default: 2
+MaxCallPerOp : queuefewop notification is triggered if there are more than MaxCallPerOp calls for each operator. Default: 2
 
-MaxCalls: notification is triggered if there are more than MaxCalls waiting and holdtime is more than MaxHoldtime. Default 10
+MaxCalls: queuemaxwait notification is triggered if there are more than MaxCalls waiting and holdtime is more than MaxHoldtime. Default 10
 
-MaxHoldtime: notification is triggered if there are more than MaxCalls waiting and holdtime is more than MaxHoldtime. Default 120 
+MaxHoldtime: queueload notification is triggered if there are more than MaxCalls waiting and holdtime is more than MaxHoldtime. Also queueholdtime notification is triggered if holdtime is > than MaxHoldtime Default 120 
 
-CallersMaxWait: notification is triggered if there are more than MaxCalls waiting and the first call waiting time is more than CallersMaxWait. Default 250 seconds.
+CallersMaxWait: queuemaxwait notification is triggered if there are more than MaxCalls waiting and the first call waiting time is more than CallersMaxWait. Default 250 seconds.
 
 Debug: If enabled, debug information is logged in syslog. Default: False
 

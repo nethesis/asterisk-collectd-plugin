@@ -35,7 +35,7 @@ EnableNotifications: send notifications to collectd. Default True
 
 MaxCallPerOp : queuefewop notification is triggered if there are more than MaxCallPerOp calls for each operator. Default: 2
 
-MaxCalls: queuemaxwait notification is triggered if there are more than MaxCalls waiting and holdtime is more than MaxHoldtime. Default 10
+MaxCalls: queuemaxwait notification is triggered if there are more than MaxCalls waiting and the first call waiting time is more than CallersMaxWait. Default 10
 
 MaxHoldtime: queueload notification is triggered if there are more than MaxCalls waiting and holdtime is more than MaxHoldtime. Also queueholdtime notification is triggered if holdtime is > than MaxHoldtime Default 120 
 

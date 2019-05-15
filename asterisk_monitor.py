@@ -223,10 +223,11 @@ def configure_callback(conf):
             CONFIG[node.key] = node.values[0]
     CONFIG['Port'] = int(CONFIG['Port'])
     for key in ['Debug','EnableNotifications','EnableGraphs']:
-        if CONFIG[key].lower() == 'true':
-            CONFIG[key] = True
-        else :
-            CONFIG[key] = False
+        if isinstance(CONFIG[key], basestring):
+            if CONFIG[key].lower() == 'true':
+                CONFIG[key] = True
+            else :
+                CONFIG[key] = False
 
     log_debug('plugin configured')
     ami_client_connect_and_login(address=CONFIG['Host'],port=CONFIG['Port'],username=CONFIG['Username'],secret=CONFIG['Secret'])

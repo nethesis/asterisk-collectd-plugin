@@ -105,12 +105,12 @@ def read_callback():
                     if CONFIG['EnableGraphs']:
                         # Calls
                         try:
-                            dispatch_value('queue '+queue,'calls', data['Calls'],'gauge','Calls')
+                            dispatch_value('queue_'+queue,'calls', data['Calls'],'gauge','Calls')
                         except Exception as err:
                             collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
                         # Online Members
                         try:
-                            dispatch_value('queue '+queue,'online_members',data['OnlineMembers'],'gauge','Online Members')
+                            dispatch_value('queue_'+queue,'online_members',data['OnlineMembers'],'gauge','Online Members')
                         except Exception as err:
                             collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
                         # Holdtime
@@ -139,7 +139,7 @@ def read_callback():
                             collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
                         # Paused Members
                         try:
-                            dispatch_value('queue '+queue,'paused_members',data['PausedMembers'],'gauge','Paused Members')
+                            dispatch_value('queue_'+queue,'paused_members',data['PausedMembers'],'gauge','Paused Members')
                         except Exception as err:
                            collectd.info('ERROR dispatching Asterisk plugin data: %s' % str(err))
 
